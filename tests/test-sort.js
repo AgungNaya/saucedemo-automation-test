@@ -9,17 +9,16 @@ describe('SauceDemo Test - Login and Sort A-Z', function () {
 
     let driver;
 
-    before(async () => {
+    beforeEach(async () => {
         driver = await new Builder().forBrowser('firefox').build();
+        await driver.get('https://www.saucedemo.com')
     });
 
-    after(async () => {
+    afterEach(async () => {
         await driver.quit();
     });
 
     it('should login successfully and sort products A-Z', async () => {
-        await driver.get('https://www.saucedemo.com');
-
         await driver.findElement(By.id('user-name')).sendKeys('standard_user');
         await driver.findElement(By.id('password')).sendKeys('secret_sauce');
         await driver.findElement(By.id('login-button')).click();
@@ -52,5 +51,44 @@ describe('SauceDemo Test - Login and Sort A-Z', function () {
         }
         const sortedNames = [...productNames].sort();
         assert.deepStrictEqual(productNames, sortedNames, 'Products are not sorted from A to Z');
+    });
+     it('Login with locked_out_user', async function () {
+        const options = new firefox.Options();
+        options.addArguments("--headless");
+
+        await driver.get('https://www.saucedemo.com');
+        const title = await driver.getTitle();
+
+        // assert: memastikan object sama persis
+        assert.strictEqual(title, 'Swag Labs');
+
+        // inputs
+        let inputUsername = await driver.findElement(By.css('[data-test="username"]'))
+        let inputPassword = await driver.findElement(By.xpath('//*[@data-test="password"]'))
+        let buttonLogin = await driver.findElement(By.className('submit-button btn_action'))
+        await inputUsername.sendKeys('locked_out_user')
+        await inputPassword.sendKeys('secret_sauce')
+        await buttonLogin.click()
+        
+        // element eror
+        const errorElement = await driver.wait(
+            until.elementLocated(By.css('[data-test="error"')),
+            6000
+        );
+
+        //assert
+        const errorText = (await errorElement.getText()).trim();
+        assert.strictEqual(errorText, "Epic sadface: Sorry, this user has been locked out.");
+        
+        await driver.sleep(1700)
+    });
+
+
+    it.skip('Check saucedemo availabilty', async function () {
+        const options = new firefox.Options();
+        options.addArguments("--headless");
+
+        await driver.get('https://www.saucedemo.com');
+        const title = await driver.getTitle();
     });
 });
