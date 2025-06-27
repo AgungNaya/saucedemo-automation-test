@@ -1,8 +1,12 @@
-const { Builder, By, until } = require('selenium-webdriver');
-const firefox = require('selenium-webdriver/firefox');
-const assert = require('assert');
-const { Select } = require('selenium-webdriver/lib/select'); 
-const fs = require('fs');
+import { Builder, By, until } from 'selenium-webdriver';
+import firefox from 'selenium-webdriver/firefox.js';
+import assert from 'assert';
+import { Select } from 'selenium-webdriver/lib/select.js'; 
+import fs from 'fs';
+import { PNG } from "pngjs";
+import pixelmatch from "pixelmatch";
+import PageLogin from '../pages/page_login.js';
+
 
 describe('SauceDemo Test - Login and Sort A-Z', function () {
     this.timeout(30000); 
@@ -10,8 +14,13 @@ describe('SauceDemo Test - Login and Sort A-Z', function () {
     let driver;
 
     beforeEach(async () => {
-        driver = await new Builder().forBrowser('firefox').build();
-        await driver.get('https://www.saucedemo.com')
+        const options = new firefox.Options();
+        driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).build();
+        await driver.get('https://www.saucedemo.com');
+
+        if (!fs.existsSync('screencapture')) {
+            fs.mkdirSync('screencapture');
+        }
     });
 
     afterEach(async () => {
@@ -19,16 +28,36 @@ describe('SauceDemo Test - Login and Sort A-Z', function () {
     });
 
     it('should login successfully and sort products A-Z', async () => {
-        await driver.findElement(By.id('user-name')).sendKeys('standard_user');
-        await driver.findElement(By.id('password')).sendKeys('secret_sauce');
-        await driver.findElement(By.id('login-button')).click();
+        //Login POM
+        await PageLogin.login(driver, 'standard_user', 'secret_sauce');
 
         await driver.wait(until.urlContains('inventory.html'), 10000);
         await driver.wait(until.elementLocated(By.className('inventory_list')), 10000);
+        //Visual testing
+        let ss_redirect = await driver.takeScreenshot();
+        fs.writeFileSync('screencapture/current.png', Buffer.from(ss_redirect, 'base64'));
 
-        driver.takeScreenshot().then(function(data){
-            fs.writeFileSync('screenshot.png', data, 'base64');
-        });
+        if (!fs.existsSync("screencapture/baseline.png")) {
+            fs.copyFileSync("screencapture/current.png", "screencapture/baseline.png");
+            console.log("Baseline image saved.")
+        }
+
+        let img1 = PNG.sync.read(fs.readFileSync("screencapture/baseline.png"));
+        let img2 = PNG.sync.read(fs.readFileSync("screencapture/current.png"));
+        let { width, height } = img1;
+        let diff = new PNG({ width, height});
+
+        let numDiffPixels = pixelmatch(img1.data, img2.data, diff.data, width, height, { threshold: 0.1});
+        fs.writeFileSync("screencapture/diff.png", PNG.sync.write(diff));
+
+        if (numDiffPixels > 0) {
+            console.log(`Visual differences found! Pixels different: ${numDiffPixels}`);
+        } else {
+            console.log("No visual differences found.");
+        }
+
+        let ss_loginRedirect = await driver.takeScreenshot();
+        fs.writeFileSync('screencapture/ss_login_redirect_inventory_page.png', Buffer.from(ss_loginRedirect, 'base64'));
 
         const currentUrl = await driver.getCurrentUrl();
         assert.ok(currentUrl.includes('inventory.html'), 'Login failed and the User was not redirected to inventory page');
@@ -61,25 +90,22 @@ describe('SauceDemo Test - Login and Sort A-Z', function () {
 
         // assert: memastikan object sama persis
         assert.strictEqual(title, 'Swag Labs');
-
-        // inputs
-        let inputUsername = await driver.findElement(By.css('[data-test="username"]'))
-        let inputPassword = await driver.findElement(By.xpath('//*[@data-test="password"]'))
-        let buttonLogin = await driver.findElement(By.className('submit-button btn_action'))
-        await inputUsername.sendKeys('locked_out_user')
-        await inputPassword.sendKeys('secret_sauce')
-        await buttonLogin.click()
+        //Login POM
+        await PageLogin.login(driver, 'locked_out_user', 'secret_sauce');
         
         // element eror
         const errorElement = await driver.wait(
-            until.elementLocated(By.css('[data-test="error"')),
+            until.elementLocated(By.css('[data-test="error"]')),
             6000
         );
 
         //assert
         const errorText = (await errorElement.getText()).trim();
         assert.strictEqual(errorText, "Epic sadface: Sorry, this user has been locked out.");
-        
+        //screenshot
+        let ss_errorText = await errorElement.takeScreenshot();
+        fs.writeFileSync('screencapture/ss_errorText.png', Buffer.from(ss_errorText, 'base64'));
+
         await driver.sleep(1700)
     });
 
