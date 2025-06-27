@@ -4,8 +4,9 @@
     "description": "Selenium WebDriver tests using Mocha with Mochawesome reports",
     "scripts": {
         "testing": "mocha tests/test-sort.js --recursive --timeout 60000",
-        "jalankan-mochawesome": "mocha tests/test-sort.js --recursive --timeout 60000 --reporter mochawesome",
-        "jalankan-simple-html": "mocha tests/test-sort.js --recursive --timeout 60000 --reporter mocha-simple-html-reporter --reporter-options output=report-test.html"
+        "testing-parallel": "mocha tests/test-sort.js --parallel --recursive --timeout 60000",
+        "jalankan-mochawesome": "mocha tests --recursive --timeout 60000 --reporter mochawesome",
+        "jalankan-simple-html": "mocha tests --recursive --timeout 60000 --reporter mocha-simple-html-reporter --reporter-options output=report-test.html"
     },
     "dependencies": {
         "selenium-webdriver": "^4.17.0"
