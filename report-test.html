@@ -553,22 +553,37 @@ body {
                     <li><span id="toggle-passes" class="toggle-passes">show failures only</span></li>
                 </ul>
                 <ul class="mocha-stats">
-                    <li class="passes">passes: <em>1</em></li>
-                    <li class="pending">pending: <em>0</em></li>
+                    <li class="passes">passes: <em>2</em></li>
+                    <li class="pending">pending: <em>1</em></li>
                     <li class="failures">failures: <em>0</em></li>
-                    <li class="duration">duration: <em>15.9s</em></li>
+                    <li class="duration">duration: <em>11.9s</em></li>
                 </ul>
             </div>
-            <ul id="report"><li class="suite"><h1>SauceDemo Test - Login and Sort A-Z</h1><ul><li class="test pass slow"><h2>should login successfully and sort products A-Z<span class="duration">6725ms</span></h2><pre><code>async () =&#x3E; {
-        await driver.get(&#x27;https://www.saucedemo.com&#x27;);
-        await driver.findElement(By.id(&#x27;user-name&#x27;)).sendKeys(&#x27;standard_user&#x27;);
-        await driver.findElement(By.id(&#x27;password&#x27;)).sendKeys(&#x27;secret_sauce&#x27;);
-        await driver.findElement(By.id(&#x27;login-button&#x27;)).click();
+            <ul id="report"><li class="suite"><h1>SauceDemo Test - Login and Sort A-Z</h1><ul><li class="test pass slow"><h2>should login successfully and sort products A-Z<span class="duration">1029ms</span></h2><pre><code>async () =&#x3E; {
+        //Login POM
+        await PageLogin.login(driver, &#x27;standard_user&#x27;, &#x27;secret_sauce&#x27;);
         await driver.wait(until.urlContains(&#x27;inventory.html&#x27;), 10000);
         await driver.wait(until.elementLocated(By.className(&#x27;inventory_list&#x27;)), 10000);
-        driver.takeScreenshot().then(function(data){
-            fs.writeFileSync(&#x27;screenshot.png&#x27;, data, &#x27;base64&#x27;);
-        });
+        //Visual testing
+        let ss_redirect = await driver.takeScreenshot();
+        fs.writeFileSync(&#x27;screencapture/current.png&#x27;, Buffer.from(ss_redirect, &#x27;base64&#x27;));
+        if (!fs.existsSync(&#x22;screencapture/baseline.png&#x22;)) {
+            fs.copyFileSync(&#x22;screencapture/current.png&#x22;, &#x22;screencapture/baseline.png&#x22;);
+            console.log(&#x22;Baseline image saved.&#x22;)
+        }
+        let img1 = PNG.sync.read(fs.readFileSync(&#x22;screencapture/baseline.png&#x22;));
+        let img2 = PNG.sync.read(fs.readFileSync(&#x22;screencapture/current.png&#x22;));
+        let { width, height } = img1;
+        let diff = new PNG({ width, height});
+        let numDiffPixels = pixelmatch(img1.data, img2.data, diff.data, width, height, { threshold: 0.1});
+        fs.writeFileSync(&#x22;screencapture/diff.png&#x22;, PNG.sync.write(diff));
+        if (numDiffPixels &#x3E; 0) {
+            console.log(&#x60;Visual differences found! Pixels different: ${numDiffPixels}&#x60;);
+        } else {
+            console.log(&#x22;No visual differences found.&#x22;);
+        }
+        let ss_loginRedirect = await driver.takeScreenshot();
+        fs.writeFileSync(&#x27;screencapture/ss_login_redirect_inventory_page.png&#x27;, Buffer.from(ss_loginRedirect, &#x27;base64&#x27;));
         const currentUrl = await driver.getCurrentUrl();
         assert.ok(currentUrl.includes(&#x27;inventory.html&#x27;), &#x27;Login failed and the User was not redirected to inventory page&#x27;);
         const sortDropdown = await driver.findElement(By.css(&#x27;[data-test=&#x22;product-sort-container&#x22;]&#x27;));
@@ -586,7 +601,29 @@ body {
         }
         const sortedNames = [...productNames].sort();
         assert.deepStrictEqual(productNames, sortedNames, &#x27;Products are not sorted from A to Z&#x27;);
-    }</code></pre></li></ul></li></ul>
+    }</code></pre></li><li class="test pass slow"><h2>Login with locked_out_user<span class="duration">2100ms</span></h2><pre><code>async function () {
+        const options = new firefox.Options();
+        options.addArguments(&#x22;--headless&#x22;);
+        await driver.get(&#x27;https://www.saucedemo.com&#x27;);
+        const title = await driver.getTitle();
+        // assert: memastikan object sama persis
+        assert.strictEqual(title, &#x27;Swag Labs&#x27;);
+        //Login POM
+        await PageLogin.login(driver, &#x27;locked_out_user&#x27;, &#x27;secret_sauce&#x27;);
+        
+        // element eror
+        const errorElement = await driver.wait(
+            until.elementLocated(By.css(&#x27;[data-test=&#x22;error&#x22;]&#x27;)),
+            6000
+        );
+        //assert
+        const errorText = (await errorElement.getText()).trim();
+        assert.strictEqual(errorText, &#x22;Epic sadface: Sorry, this user has been locked out.&#x22;);
+        //screenshot
+        let ss_errorText = await errorElement.takeScreenshot();
+        fs.writeFileSync(&#x27;screencapture/ss_errorText.png&#x27;, Buffer.from(ss_errorText, &#x27;base64&#x27;));
+        await driver.sleep(1700)
+    }</code></pre></li><li class="test pass pending"><h2>Check saucedemo availabilty</h2></li></ul></li></ul>
         </div>
         <script>
         function hideSuitesWithout(className) {
